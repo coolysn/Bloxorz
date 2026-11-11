@@ -1,5 +1,7 @@
+// =====================================================================
 //  Bloxorzi MÄNG – joonistamine, animatsioon, nupud ja redaktor.
 //  Reeglid ja otsing tulevad failist engine.js (step, solve, parseLevel ...).
+// =====================================================================
 
 const $ = id => document.getElementById(id);
 const cv = $("cv");
@@ -8,7 +10,7 @@ const ctx = cv.getContext("2d");
 const GROUP_COLORS = ["#6ec6ff", "#f2c94c", "#b78cff", "#6fdc8c"];
 const SPEED = 250;          // ühe käigu animatsiooni kestus (ms)
 
-// mängu olek
+// ---------- mängu olek ----------
 let level;                  // praegune laud
 let state;                  // ploki seis (vt engine.js)
 let active = 0;             // millist kuubikut juhitakse (poolitatult)
@@ -20,7 +22,9 @@ let sinkStart = null;       // millal plokk auku vajuma hakkas
 let trail = [];             // lahenduse jälg laual
 let busy = false;           // animatsioon käib -> uusi käike ei võta
 
+// =====================================================================
 //  1. JOONISTAMINE (isomeetriline vaade)
+// =====================================================================
 const view = { size: 40, ox: 0, oy: 0 };
 const HEIGHT = 0.62;        // kui kõrge on üks kuubik ekraanil
 const THICK = 0.28;         // plaadi paksus
@@ -195,7 +199,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+// =====================================================================
 //  2. MÄNGULOOGIKA
+// =====================================================================
 function setMsg(text, cls = "") {
   $("msg").textContent = text;
   $("msg").className = cls;
@@ -258,7 +264,9 @@ function playNextMove() {
   move(dir, which, true);
 }
 
+// =====================================================================
 //  3. LAHENDUSE NUPUD JA KÄIKUDE NIMEKIRI
+// =====================================================================
 const ARROWS = { U: "↑", D: "↓", L: "←", R: "→" };
 
 function runSolver() {
@@ -272,6 +280,18 @@ function runSolver() {
     v.style.color = "var(--bad)";
   }
   restart();
+
+  if (solution.path) {
+    // näita kogu teed kohe laual värvilise jäljena
+    let s = startState(level);
+    for (const [dir, which] of solution.path) {
+      s = step(level, s, dir, which).state;
+      trail.push(boxesOf(s));
+    }
+    setMsg(`Leitud ${solution.path.length} käiku – vajuta „Näita teed“`, "win");
+  } else {
+    setMsg("Lahendust pole", "bad");
+  }
 }
 
 function renderMoves() {
@@ -298,7 +318,9 @@ $("btnPlay").onclick = () => {
 };
 
 document.addEventListener("keydown", e => {
-  if (e.target.matches("textarea, select")) return;
+  if (e.target.matches("textarea")) return;   // tekstikastis kirjutamine jääb tavaliseks
+  // NB! taseme valik (select) ei ole siin erand: nooled liigutavad plokki,
+  // mitte ei vaheta taset (preventDefault allpool peatab vahetuse)
   const dir = { ArrowUp: "U", ArrowDown: "D", ArrowLeft: "L", ArrowRight: "R" }[e.key];
   if (dir) {
     e.preventDefault();
@@ -312,7 +334,9 @@ document.addEventListener("keydown", e => {
   if (e.key === "r" || e.key === "R") restart();
 });
 
+// =====================================================================
 //  4. REDAKTOR – iga tööriist on lihtsalt üks kaarditähis
+// =====================================================================
 const TOOLS = [
   { ch: ".", name: "Tühi" },        { ch: "#", name: "Plaat" },
   { ch: "o", name: "Oranž" },       { ch: "S", name: "Algus" },
@@ -378,8 +402,9 @@ window.addEventListener("pointerup", () => (painting = false));
 
 $("btnLoad").onclick = () => { $("preset").value = ""; loadLevel($("txt").value); };
 
-
+// =====================================================================
 //  5. KÄIVITAMINE
+// =====================================================================
 function loadLevel(text) {
   level = parseLevel(text);
   solution = null;
@@ -394,10 +419,12 @@ function loadLevel(text) {
 $("preset").innerHTML =
   Object.keys(PRESETS).map(n => `<option>${n}</option>`).join("") +
   `<option value="">— oma laud —</option>`;
-$("preset").onchange = () => { if (PRESETS[$("preset").value]) loadLevel(PRESETS[$("preset").value]); };
+$("preset").onchange = () => {
+  if (PRESETS[$("preset").value]) loadLevel(PRESETS[$("preset").value]);
+  $("preset").blur();          // fookus valikust ära, et nooled läheksid mängule
+};
 window.addEventListener("resize", fitView);
 
 renderTools();
 loadLevel(PRESETS["Tase 1 (originaal)"]);
-runSolver();
 requestAnimationFrame(frame);
