@@ -1,3 +1,4 @@
+/* Värvid CSS-muutujatena: muudad ühes kohas, muutub kogu lehel */
 :root {
   --bg: #14172a;
   --panel: #1d2138;
@@ -21,6 +22,7 @@ body {
   font-family: system-ui, "Segoe UI", sans-serif;
 }
 
+/* Pealkirjad */
 h1 { margin: 0; font-size: 36px; }
 h1 span { color: var(--orange); }
 h2 { margin-top: 32px; text-transform: uppercase; font-size: 18px; letter-spacing: .05em; }
@@ -30,6 +32,7 @@ h2 { margin-top: 32px; text-transform: uppercase; font-size: 18px; letter-spacin
 .layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
 @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
 
+/* Paneel = tume kast nuppude ja redaktori jaoks */
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -41,6 +44,7 @@ h2 { margin-top: 32px; text-transform: uppercase; font-size: 18px; letter-spacin
   min-width: 0;
 }
 
+/* Mängulaud (lõuend) ja teade selle all */
 .stage {
   position: relative;
   background: radial-gradient(circle at 50% 35%, #232846, var(--bg) 70%);
@@ -59,6 +63,7 @@ h2 { margin-top: 32px; text-transform: uppercase; font-size: 18px; letter-spacin
 
 .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
+/* Vormielemendid ja nupud */
 label { font-size: 12px; color: var(--muted); text-transform: uppercase; }
 
 button, select, textarea {
@@ -68,10 +73,12 @@ button, select, textarea {
 button { cursor: pointer; }
 button:hover { border-color: var(--muted); }
 button.primary { background: var(--accent); color: #0c1f1c; font-weight: 600; }
+/* valitud tööriist või grupp redaktoris */
 button.on { border-color: var(--accent); background: #24413d; }
 
 textarea { font-family: Consolas, monospace; min-height: 150px; white-space: pre; }
 
+/* Lahenduse tulemus ja käikude nimekiri */
 #verdict { margin: 0; font-weight: 600; }
 #moves { display: flex; flex-wrap: wrap; gap: 4px; max-height: 130px; overflow: auto; }
 .mv {
@@ -81,6 +88,7 @@ textarea { font-family: Consolas, monospace; min-height: 150px; white-space: pre
 .mv.second { color: #b78cff; border-color: #b78cff; }  /* 2. kuubiku käik */
 .mv.now    { background: var(--accent); color: #0c1f1c; }
 
+/* Redaktori ruudustik */
 #grid { display: grid; gap: 2px; width: max-content; user-select: none; overflow-x: auto; }
 .cell {
   width: 28px; height: 28px; border-radius: 3px; cursor: crosshair;
@@ -88,4 +96,4 @@ textarea { font-family: Consolas, monospace; min-height: 150px; white-space: pre
 }
 
 .keys, .legend { color: var(--muted); font-size: 13px; margin: 0; }
-kbd, code { font-family: monospace; color: var(--text); }
+kbd, code { font-family: monospace; color: var(--text); }

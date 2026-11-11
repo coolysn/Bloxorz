@@ -3,10 +3,12 @@
 //  Reeglid ja otsing tulevad failist engine.js (step, solve, parseLevel ...).
 // =====================================================================
 
+// lühend: $("cv") == document.getElementById("cv")
 const $ = id => document.getElementById(id);
 const cv = $("cv");
-const ctx = cv.getContext("2d");
+const ctx = cv.getContext("2d");     // 2D-joonistuskontekst: kõik joonistamine käib selle kaudu
 
+// lülitite ja sildade grupivärvid (grupp 1–4)
 const GROUP_COLORS = ["#6ec6ff", "#f2c94c", "#b78cff", "#6fdc8c"];
 const SPEED = 250;          // ühe käigu animatsiooni kestus (ms)
 
@@ -23,13 +25,14 @@ let trail = [];             // lahenduse jälg laual
 let busy = false;           // animatsioon käib -> uusi käike ei võta
 
 // =====================================================================
-//  1. JOONISTAMINE 
+//  1. JOONISTAMINE (isomeetriline vaade lõuendil)
 // =====================================================================
-const view = { size: 40, ox: 0, oy: 0 };
+const view = { size: 40, ox: 0, oy: 0 };   // ühe ruudu laius pikslites + nihe ekraani keskele
 const HEIGHT = 0.62;        // kui kõrge on üks kuubik ekraanil
 const THICK = 0.28;         // plaadi paksus
 
-// ruudustiku punkt (rida, veerg, kõrgus) -> ekraani punkt [x, y]
+// Isomeetriline projektsioon: ruudustiku punkt (rida, veerg, kõrgus) -> ekraani punkt [x, y]
+// veerg viib paremale-alla, rida vasakule-alla, kõrgus üles
 function toScreen(r, c, z) {
   return [
     view.ox + (c - r) * view.size / 2,
@@ -37,6 +40,7 @@ function toScreen(r, c, z) {
   ];
 }
 
+// joonistab hulknurga punktide järgi (plaadi pind, ploki külg jne)
 function polygon(points, fill, stroke) {
   ctx.beginPath();
   points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
@@ -58,7 +62,7 @@ function fitView() {
   const w = cv.clientWidth, h = cv.clientHeight;
   cv.width = w * dpr;
   cv.height = h * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);    // teravad jooned ka kõrge eraldusvõimega ekraanil
 
   const span = (level.W + level.H) / 2;
   view.size = Math.min((w - 40) / span, (h - 90) / (span / 2 + 1.5), 70);
@@ -66,6 +70,7 @@ function fitView() {
   view.oy = h / 2 - (level.W + level.H) / 8 * view.size + 0.4 * view.size;
 }
 
+// ruudutüübi põhivärv
 function tileColor(k) {
   if (k.t === T.ORANGE) return "#ec8b3c";
   if (k.t === T.BRIDGE) return shade(GROUP_COLORS[k.g], 0.75);
@@ -73,6 +78,7 @@ function tileColor(k) {
   return "#8d97b5";                       // tavaline plaat, lülitid, poolitus
 }
 
+// joonistab ühe plaadi: kaks külge (paksus) + pealmine pind + märk peal
 function drawTile(r, c, k) {
   if (k.t === T.EMPTY) return;
   const top = [toScreen(r, c, 0), toScreen(r, c + 1, 0), toScreen(r + 1, c + 1, 0), toScreen(r + 1, c, 0)];
@@ -86,7 +92,7 @@ function drawTile(r, c, k) {
   }
 
   const color = tileColor(k);
-  // kaks nähtavat külge + pealmine pind
+  // kaks nähtavat külge + pealmine pind; tumedamad küljed jätavad mulje valgusest
   polygon([toScreen(r + 1, c, 0), toScreen(r + 1, c + 1, 0), toScreen(r + 1, c + 1, -THICK), toScreen(r + 1, c, -THICK)], shade(color, 0.6));
   polygon([toScreen(r, c + 1, 0), toScreen(r + 1, c + 1, 0), toScreen(r + 1, c + 1, -THICK), toScreen(r, c + 1, -THICK)], shade(color, 0.45));
   polygon(top, color, shade(color, 0.8));
@@ -131,7 +137,8 @@ function drawBox(b, alpha = 1) {
   ctx.globalAlpha = 1;
 }
 
-// seis -> üks või kaks kasti
+// Seis -> üks või kaks kasti joonistamiseks.
+// Püsti plokk on 2 kõrge, lamav 1 kõrge ja 2 pikk, poolitatult kaks 1×1×1 kuupi.
 function boxesOf(s) {
   if (s.split) {
     return [s.a, s.b].map(([r, c]) => ({ r0: r, c0: c, r1: r + 1, c1: c + 1, z0: 0, z1: 1 }));
@@ -143,14 +150,18 @@ function boxesOf(s) {
   }];
 }
 
+// Lineaarne interpolatsioon: väärtus a ja b vahel, t = 0..1
 const lerp = (a, b, t) => a + (b - a) * t;
+// Easing (ease-in-out): liikumine algab ja lõpeb aeglaselt, keskel kiire
 const ease = t => (t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
-// joonistatakse iga ekraanikaadri ajal (~60 korda sekundis)
+// Joonistustsükkel: kutsutakse iga ekraanikaadri ajal (~60 korda sekundis).
+// Iga kord kustutatakse pilt ja joonistatakse kõik uuesti.
 function frame(now) {
   ctx.clearRect(0, 0, cv.clientWidth, cv.clientHeight);
 
-  // plaadid tagant ettepoole, et eesmised kataksid tagumisi
+  // Maalri algoritm: plaadid tagant ettepoole (diagonaalide kaupa, rida + veerg = sum),
+  // et eesmised kataksid tagumisi
   for (let sum = 0; sum < level.H + level.W; sum++) {
     for (let r = 0; r < level.H; r++) {
       const c = sum - r;
@@ -158,7 +169,7 @@ function frame(now) {
     }
   }
 
-  // lahenduse vikerkaarejälg
+  // lahenduse vikerkaarejälg: värvitoon muutub käigu järjekorranumbri järgi
   trail.forEach((boxes, i) => {
     const hue = 170 - (i / solution.path.length) * 150;
     boxes.forEach(b => polygon(
@@ -170,11 +181,11 @@ function frame(now) {
     let boxes = boxesOf(state);
     let alpha = 1;
 
-    // veeremise animatsioon
+    // veeremise animatsioon: t = kui suur osa animatsioonist on möödas (0..1)
     if (anim) {
       const t = Math.min(1, (now - anim.start) / SPEED);
       if (anim.from.length === anim.to.length) {
-        const e = ease(t), lift = Math.sin(Math.PI * t) * .25;
+        const e = ease(t), lift = Math.sin(Math.PI * t) * .25;   // lift = väike hüpe keskel
         boxes = anim.to.map((b, i) => {
           const a = anim.from[i];
           return {
@@ -187,26 +198,29 @@ function frame(now) {
       if (t >= 1) animationDone();
     }
 
-    // auku vajumine
+    // auku vajumine: plokk liigub alla ja muutub läbipaistvaks
     if (sinkStart) {
       const t = Math.min(1, (now - sinkStart) / 700);
       boxes = boxes.map(b => ({ ...b, z0: b.z0 - 2 * t, z1: b.z1 - 2 * t }));
       alpha = 1 - t;
     }
 
+    // ka kuubikud tagant ettepoole
     boxes.sort((x, y) => (x.r0 + x.c0) - (y.r0 + y.c0)).forEach(b => drawBox(b, alpha));
   }
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame);   // telli järgmine kaader
 }
 
 // =====================================================================
 //  2. MÄNGULOOGIKA
 // =====================================================================
+// teade laua all; cls = "win" (roheline) või "bad" (punane)
 function setMsg(text, cls = "") {
   $("msg").textContent = text;
   $("msg").className = cls;
 }
 
+// pane plokk algusesse ja tühjenda animatsiooni olek (lahendus jääb alles)
 function restart() {
   state = startState(level);
   active = 0;
@@ -221,11 +235,13 @@ function restart() {
   setMsg(level.start ? "Vajuta „Lahenda“ või mängi nooltega" : "Lisa lauale algus (S)");
 }
 
+// Üks käik: reeglid kontrollib engine.js step(), siin ainult käivitatakse animatsioon.
+// which = mitmes kuubik (poolitatult), fromSolution = kas käik tuleb lahendusest
 function move(dir, which, fromSolution = false) {
-  if (busy || !level.start) return;
+  if (busy || !level.start) return;           // eelmine animatsioon veel käib
   const res = step(level, state, dir, which);
 
-  if (res.fail) {
+  if (res.fail) {                             // keelatud käik -> teade ja uus algus
     busy = true;
     setMsg(res.fail, "bad");
     setTimeout(restart, 900);
@@ -243,6 +259,7 @@ function move(dir, which, fromSolution = false) {
   busy = true;
 }
 
+// kutsutakse frame()-st, kui animatsioon on lõppenud
 function animationDone() {
   busy = false;
   const won = anim.win;
@@ -255,9 +272,10 @@ function animationDone() {
     setMsg("Auku! Tase läbitud", "win");
     return;
   }
-  if (playing && playIndex < solution.path.length) playNextMove();
+  if (playing && playIndex < solution.path.length) playNextMove();  // "Näita teed" -> järgmine käik
 }
 
+// võta lahendusest järgmine käik ja tee see
 function playNextMove() {
   const [dir, which] = solution.path[playIndex++];
   renderMoves();
@@ -269,6 +287,7 @@ function playNextMove() {
 // =====================================================================
 const ARROWS = { U: "↑", D: "↓", L: "←", R: "→" };
 
+// "Lahenda": käivita BFS (engine.js solve) ja näita tulemust
 function runSolver() {
   solution = solve(level);
   const v = $("verdict");
@@ -282,7 +301,7 @@ function runSolver() {
   restart();
 
   if (solution.path) {
-    // näita kogu teed kohe laual värvilise jäljena
+    // näita kogu teed kohe laual värvilise jäljena: mängi käigud läbi ilma animatsioonita
     let s = startState(level);
     for (const [dir, which] of solution.path) {
       s = step(level, s, dir, which).state;
@@ -294,6 +313,7 @@ function runSolver() {
   }
 }
 
+// käikude nimekiri noolena paneelis; praegune käik on esile tõstetud
 function renderMoves() {
   if (!solution || !solution.path) { $("moves").innerHTML = ""; return; }
   $("moves").innerHTML = solution.path.map(([d, w], i) =>
@@ -301,6 +321,7 @@ function renderMoves() {
   ).join("");
 }
 
+// nuppude sidumine funktsioonidega
 $("btnSolve").onclick = runSolver;
 $("btnReset").onclick = restart;
 $("btnPlay").onclick = () => {
@@ -317,6 +338,7 @@ $("btnPlay").onclick = () => {
   playNextMove();
 };
 
+// klaviatuur: nooled liigutavad, tühik vahetab kuubikut, R alustab uuesti
 document.addEventListener("keydown", e => {
   if (e.target.matches("textarea")) return;   // tekstikastis kirjutamine jääb tavaliseks
   // NB! taseme valik (select) ei ole siin erand: nooled liigutavad plokki,
@@ -328,7 +350,7 @@ document.addEventListener("keydown", e => {
   }
   if (e.key === " " && state.split) {
     e.preventDefault();
-    active = 1 - active;
+    active = 1 - active;                   // 0 <-> 1
     setMsg(`Juhid kuubikut ${active + 1}`);
   }
   if (e.key === "r" || e.key === "R") restart();
@@ -337,6 +359,7 @@ document.addEventListener("keydown", e => {
 // =====================================================================
 //  4. REDAKTOR – iga tööriist on lihtsalt üks kaarditähis
 // =====================================================================
+// tööriistad: ch = millise tähe paneb kaardile
 const TOOLS = [
   { ch: ".", name: "Tühi" },        { ch: "#", name: "Plaat" },
   { ch: "o", name: "Oranž" },       { ch: "S", name: "Algus" },
@@ -346,10 +369,11 @@ const TOOLS = [
   { ch: "5", name: "Sild lahti", group: true },
   { ch: "X", name: "Poolitus" },    { ch: "P", name: "Siht P" }, { ch: "Q", name: "Siht Q" },
 ];
-let tool = TOOLS[1];
-let group = 0;
-let painting = false;
+let tool = TOOLS[1];          // valitud tööriist (alguses "Plaat")
+let group = 0;                // valitud grupp lülititele ja sildadele
+let painting = false;         // hiire nupp all -> lohistamisega joonistamine
 
+// joonista tööriistade ja gruppide nupud; valitud nupp saab klassi "on"
 function renderTools() {
   $("tools").innerHTML = TOOLS.map((t, i) =>
     `<button data-i="${i}" class="${t === tool ? "on" : ""}">${t.name}</button>`).join("");
@@ -371,6 +395,7 @@ function paint(r, c) {
   loadLevel(lines.join("\n"));
 }
 
+// redaktori ruudustik: iga ruut on <div>, värv ruudutüübi järgi
 function renderGrid() {
   const g = $("grid");
   g.style.gridTemplateColumns = `repeat(${level.W}, 28px)`;
@@ -390,6 +415,7 @@ function renderGrid() {
   g.innerHTML = html;
 }
 
+// hiir: klõps joonistab, lohistamine joonistab mitu ruutu järjest
 $("grid").addEventListener("pointerdown", e => {
   const d = e.target.closest(".cell");
   if (d) { painting = true; paint(+d.dataset.r, +d.dataset.c); }
@@ -405,6 +431,8 @@ $("btnLoad").onclick = () => { $("preset").value = ""; loadLevel($("txt").value)
 // =====================================================================
 //  5. KÄIVITAMINE
 // =====================================================================
+// Laeb uue laua tekstist ja uuendab kõik vaated (lõuend, ruudustik, tekstikast).
+// Kasutavad: taseme valik, redaktor, "Laadi tekstist".
 function loadLevel(text) {
   level = parseLevel(text);
   solution = null;
@@ -416,6 +444,7 @@ function loadLevel(text) {
   restart();
 }
 
+// taseme valiku menüü täidetakse engine.js näidistasemetega
 $("preset").innerHTML =
   Object.keys(PRESETS).map(n => `<option>${n}</option>`).join("") +
   `<option value="">— oma laud —</option>`;
@@ -423,8 +452,9 @@ $("preset").onchange = () => {
   if (PRESETS[$("preset").value]) loadLevel(PRESETS[$("preset").value]);
   $("preset").blur();          // fookus valikust ära, et nooled läheksid mängule
 };
-window.addEventListener("resize", fitView);
+window.addEventListener("resize", fitView);   // akna suuruse muutmisel skaleeri laud uuesti
 
+// käivitamine: tööriistad, tase 1, joonistustsükli algus
 renderTools();
 loadLevel(PRESETS["Tase 1 (originaal)"]);
-requestAnimationFrame(frame);
+requestAnimationFrame(frame);

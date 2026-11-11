@@ -13,36 +13,49 @@
    - muidu lamab; hoiame alati (r1,c1) <= (r2,c2)
  Map-i võtmeks teeme seisust teksti "r1,c1,r2,c2",
  sest JS-is ei saa massiive otse võtmena võrrelda.
+
+ Mäng on graaf: tipp = seis, serv = üks käik.
+ BFS leiab graafis lühima tee, sest uurib seisud kauguse järjekorras.
 */
 
+// Suund -> [rea muutus, veeru muutus]. Rida kasvab alla, veerg paremale.
 const SUUNAD = { U: [-1, 0], D: [1, 0], L: [0, -1], R: [0, 1] };
 
+// Teeb tekstikaardist 2D massiivi kaart[rida][veerg] ning leiab alguse ja augu.
 function loeKaart(tekst) {
-  const read = tekst.replace(/^\n+|\n+$/g, "").split("\n");
+  const read = tekst.replace(/^\n+|\n+$/g, "").split("\n");   // eemalda tühjad read algusest/lõpust
   const laius = Math.max(...read.map(r => r.length));
-  const kaart = read.map(r => r.padEnd(laius, ".").split(""));
+  const kaart = read.map(r => r.padEnd(laius, ".").split(""));  // lühemad read täidetakse tühjusega
   let algus = null, eesmark = null;
   kaart.forEach((rida, r) => rida.forEach((ch, c) => {
-    if (ch === "S") algus = [r, c, r, c];
+    if (ch === "S") algus = [r, c, r, c];   // alguses seisab plokk püsti: mõlemad pooled samas ruudus
     if (ch === "G") eesmark = [r, c];
   }));
   return { kaart, algus, eesmark };
 }
 
+// Kanooniline kuju: väiksem koordinaat alati ette.
+// Nii on [0,1,0,2] ja [0,2,0,1] üks ja sama seis, mitte kaks erinevat.
 function vaiksemEnne(a, b) {
   return (a[0] < b[0] || (a[0] === b[0] && a[1] <= b[1])) ? [a, b] : [b, a];
 }
 
+// Üleminekufunktsioon: arvutab, kuhu plokk ühe käiguga veereb.
+// Ei kontrolli, kas uus seis on lubatud – seda teeb lubatud().
 function liigu(seis, suund) {
   const [r1, c1, r2, c2] = seis;
   const [dr, dc] = SUUNAD[suund];
   let a, b;
   if (r1 === r2 && c1 === c2) {                              // püsti -> pikali
+    // plokk kukub suuna poole: katab ruudud 1 ja 2 sammu kaugusel
     a = [r1 + dr, c1 + dc];
     b = [r1 + 2 * dr, c1 + 2 * dc];
   } else if ((r1 === r2 && dr === 0) || (c1 === c2 && dc === 0)) { // pikkupidi -> püsti
+    // plokk lamab liikumise suunas; tõuseb püsti selle otsa taha,
+    // mis on liikumise suunas eespool (r2,c2 paremal/all, r1,c1 vasakul/üleval)
     a = b = (dr + dc > 0) ? [r2 + dr, c2 + dc] : [r1 + dr, c1 + dc];
   } else {                                                   // külgsuunas -> jääb pikali
+    // plokk veereb üle oma pika külje: mõlemad pooled nihkuvad 1 ruudu võrra
     a = [r1 + dr, c1 + dc];
     b = [r2 + dr, c2 + dc];
   }
@@ -50,45 +63,56 @@ function liigu(seis, suund) {
   return [a[0], a[1], b[0], b[1]];
 }
 
+// Kas seis on reeglite järgi lubatud? (laua piires, mitte tühjusel, mitte püsti oranžil)
 function lubatud(kaart, seis) {
   const [r1, c1, r2, c2] = seis;
-  for (const [r, c] of [[r1, c1], [r2, c2]]) {
-    if (r < 0 || r >= kaart.length || c < 0 || c >= kaart[0].length) return false;
-    if (kaart[r][c] === ".") return false;
+  for (const [r, c] of [[r1, c1], [r2, c2]]) {               // kontrolli ploki mõlemat poolt
+    if (r < 0 || r >= kaart.length || c < 0 || c >= kaart[0].length) return false; // laualt väljas
+    if (kaart[r][c] === ".") return false;                   // tühjus -> kukub alla
   }
   if (r1 === r2 && c1 === c2 && kaart[r1][c1] === "o") return false; // habras plaat murdub
   return true;
 }
 
+// Laiuti otsing (BFS). Tagastab lühima käikude jada või null, kui lahendust pole.
 function lahenda(kaart, algus, eesmark) {
-  const jarjekord = [algus];
+  const jarjekord = [algus];                     // FIFO-järjekord: uued lõppu, töödeldav eest
   let pea = 0;                                   // järjekorra algus (kiirem kui shift())
   const kust = new Map([[algus.join(), null]]);  // seis -> {eelmine, käik}
-  const sihtVoti = [eesmark[0], eesmark[1], eesmark[0], eesmark[1]].join();
+  // kust täidab kahte rolli: külastatud seisude hulk + vanemviidad tee taastamiseks
+  const sihtVoti = [eesmark[0], eesmark[1], eesmark[0], eesmark[1]].join(); // auk, plokk püsti
 
   while (pea < jarjekord.length) {
     const seis = jarjekord[pea++];
+
+    // Siht leitud -> tee taastamine: liigu vanemviitade kaudu algusesse tagasi
     if (seis.join() === sihtVoti) {
       const kaigud = [];
       let voti = sihtVoti;
-      while (kust.get(voti) !== null) {
+      while (kust.get(voti) !== null) {          // algusseisu vanem on null
         const { eelmine, kaik } = kust.get(voti);
         kaigud.push(kaik);
         voti = eelmine;
       }
-      return { tee: kaigud.reverse(), uuritud: kust.size };
+      return { tee: kaigud.reverse(), uuritud: kust.size };  // käigud kogutud tagurpidi
     }
+
+    // Laienda seisu: proovi kõiki 4 naabrit
     for (const k of "UDLR") {
       const uus = liigu(seis, k);
+      // lisa ainult uued ja lubatud seisud – nii ei käi otsing ringiratast
       if (!kust.has(uus.join()) && lubatud(kaart, uus)) {
         kust.set(uus.join(), { eelmine: seis.join(), kaik: k });
         jarjekord.push(uus);
       }
     }
   }
+  // Järjekord tühi: kõik kättesaadavad seisud on läbi vaadatud
   return { tee: null, uuritud: kust.size };       // lahendust pole
 }
 
+// ---------- Testkaardid ----------
+// Originaalmängu 1. tase – teadaolev lühim lahendus on 7 käiku
 const TASE1 = `
 ###.......
 #S####....
@@ -97,13 +121,16 @@ const TASE1 = `
 .....##G##
 ......###.
 `;
+// Oranžid plaadid: tuleb ületada pikali
 const TASE_ORANZ = `
 Soo#ooG
 `;
+// Tühjus mõlemal pool – lahendust pole
 const TASE_VOIMATU = `
 S#.#G
 `;
 
+// Lahenda kõik testkaardid ja prindi tulemus
 for (const [nimi, t] of [["Tase 1", TASE1], ["Oranž koridor", TASE_ORANZ], ["Võimatu", TASE_VOIMATU]]) {
   const { kaart, algus, eesmark } = loeKaart(t);
   const { tee, uuritud } = lahenda(kaart, algus, eesmark);
