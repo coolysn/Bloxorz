@@ -23,7 +23,7 @@ let trail = [];             // lahenduse jälg laual
 let busy = false;           // animatsioon käib -> uusi käike ei võta
 
 // =====================================================================
-//  1. JOONISTAMINE (isomeetriline vaade)
+//  1. JOONISTAMINE 
 // =====================================================================
 const view = { size: 40, ox: 0, oy: 0 };
 const HEIGHT = 0.62;        // kui kõrge on üks kuubik ekraanil
@@ -265,7 +265,7 @@ function playNextMove() {
 }
 
 // =====================================================================
-//  3. LAHENDUSE NUPUD JA KÄIKUDE NIMEKIRI
+//  3. LAHENDUSE NUPUD JA KÄIKUDE NIMEKIRI (kutsub runSolver)
 // =====================================================================
 const ARROWS = { U: "↑", D: "↓", L: "←", R: "→" };
 
