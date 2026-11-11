@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="et">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bloxorzi labor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Bloxorzi <span>labor</span></h1>
+  <p class="sub">Joonista laud, lase laiuti otsingul leida lühim tee ja vaata, kuidas plokk auku veereb.</p>
+
+  <main class="layout">
+    <!-- MÄNGULAUD -->
+    <section class="stage">
+      <canvas id="cv"></canvas>
+      <div id="msg">Vajuta „Lahenda“ või mängi nooltega</div>
+    </section>
+
+    <!-- JUHTPANEEL -->
+    <section class="panel">
+      <label for="preset">Tase</label>
+      <select id="preset"></select>
+
+      <div class="row">
+        <button id="btnSolve" class="primary">Lahenda</button>
+        <button id="btnPlay">▶ Näita teed</button>
+        <button id="btnReset">Algusesse</button>
+      </div>
+
+      <p id="verdict">Lahendust pole veel otsitud.</p>
+      <div id="moves"></div>
+
+      <p class="keys">
+        <kbd>↑↓←→</kbd> veereta · <kbd>Tühik</kbd> vaheta kuubikut · <kbd>R</kbd> algusesse
+      </p>
+    </section>
+  </main>
+
+  <!-- REDAKTOR -->
+  <h2>Tasemeredaktor</h2>
+  <main class="layout">
+    <section class="panel">
+      <div id="tools" class="row"></div>
+      <div id="groups" class="row"></div>
+      <div id="grid"></div>
+    </section>
+
+    <section class="panel">
+      <label for="txt">Laud tekstina (siin saad muuta ka suurust)</label>
+      <textarea id="txt" spellcheck="false"></textarea>
+      <button id="btnLoad">Laadi tekstist</button>
+      <p class="legend">
+        <code>.</code> tühjus · <code>#</code> plaat · <code>o</code> oranž ·
+        <code>S</code> algus · <code>G</code> auk ·
+        <code>a–d</code> pehme lüliti · <code>A–D</code> raske lüliti ·
+        <code>1–4</code> sild kinni · <code>5–8</code> sild lahti ·
+        <code>X</code> poolitus · <code>P Q</code> kuubikute sihtkohad
+      </p>
+    </section>
+  </main>
+
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
