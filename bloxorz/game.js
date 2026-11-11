@@ -285,7 +285,8 @@ function playNextMove() {
 // =====================================================================
 //  3. LAHENDUSE NUPUD JA KÄIKUDE NIMEKIRI (kutsub runSolver)
 // =====================================================================
-const ARROWS = { U: "↑", D: "↓", L: "←", R: "→" };
+// käigu suund nii, nagu see ekraanil paistab (vt klaviatuuri kommentaari allpool)
+const ARROWS = { U: "↗", D: "↙", L: "↖", R: "↘" };
 
 // "Lahenda": käivita BFS (engine.js solve) ja näita tulemust
 function runSolver() {
@@ -343,7 +344,10 @@ document.addEventListener("keydown", e => {
   if (e.target.matches("textarea")) return;   // tekstikastis kirjutamine jääb tavaliseks
   // NB! taseme valik (select) ei ole siin erand: nooled liigutavad plokki,
   // mitte ei vaheta taset (preventDefault allpool peatab vahetuse)
-  const dir = { ArrowUp: "U", ArrowDown: "D", ArrowLeft: "L", ArrowRight: "R" }[e.key];
+  // Isomeetrilises vaates on laua suunad ekraanil diagonaalid:
+  //   R (veerg+1) = ↘   L (veerg−1) = ↖   D (rida+1) = ↙   U (rida−1) = ↗
+  // Nooled seotakse nii, et ↓ liigub alla, ↑ üles, → paremale ja ← vasakule.
+  const dir = { ArrowDown: "R", ArrowUp: "L", ArrowRight: "U", ArrowLeft: "D" }[e.key];
   if (dir) {
     e.preventDefault();
     if (!playing) move(dir, state.split ? active : 0);
